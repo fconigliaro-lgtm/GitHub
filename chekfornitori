@@ -1,0 +1,83 @@
+import os
+import datetime
+from django.core.management.base import BaseCommand
+from dbfread import DBF
+from inventory.models import Prodotto
+from sales.models import VenditaStorica
+
+class Command(BaseCommand):
+    help = 'Debug specifico per capire che fine fa il prodotto Sarchio'
+
+    def handle(self, *args, **kwargs):
+        # Lo SKU che stai guardando nello screenshot (Bevanda Mandorla)
+        TARGET_SKU = "142574441" 
+
+        print(f"--- 🕵️‍♂️ INDAGINE SPECIFICA SU: {TARGET_SKU} ---")
+
+        # 1. CONTROLLO NEL DATABASE DJANGO
+        try:
+            if not Prodotto.objects.filter(sku=TARGET_SKU).exists():
+                 print("❌ ERRORE: Questo prodotto NON esiste nell'anagrafica Prodotti (Tabella Inventory)!")
+            else:
+                prod = Prodotto.objects.get(sku=TARGET_SKU)
+                vendite_db = VenditaStorica.objects.filter(prodotto=prod).order_by('-data')
+                count = vendite_db.count()
+                print(f"📊 Vendite nel Database Django: {count}")
+                
+                if count > 0:
+                    print("   Ultime 3 vendite salvate:")
+                    for v in vendite_db[:3]:
+                        print(f"   - {v.data}: Qta {v.quantita} | Rif: {v.riferimento}")
+                else:
+                    print("   ⚠️ IL DATABASE È VUOTO per questo articolo.")
+
+        except Exception as e:
+            print(f"Errore DB: {e}")
+
+        print("\n" + "-"*50 + "\n")
+
+        # 2. CONTROLLO NEL FILE SORGENTE
+        PATHS = [r"P:\Cdapos\25\MOVMAG.DBF", r"P:\Cdapos\26\MOVMAG.DBF"]
+        found_any = False
+
+        for path in PATHS:
+            if not os.path.exists(path): continue
+                
+            print(f"📂 Scansione file: {path}")
+            try:
+                table = DBF(path, encoding='cp1252', ignore_missing_memofile=True)
+                for record in table:
+                    # Leggiamo lo SKU grezzo
+                    sku_dbf = str(record.get('MDM110', '')).strip()
+                    
+                    if sku_dbf == TARGET_SKU:
+                        found_any = True
+                        
+                        # Leggiamo i dati
+                        tipo = str(record.get('MDM010', '')).strip().upper()
+                        data = record.get('MDM030')
+                        qta = record.get('MDM150')
+                        desc = record.get('MDM140')
+
+                        print(f"   🔎 TROVATO! Data: {data} | Tipo: '{tipo}' | Qta: {qta}")
+                        
+                        # --- VERIFICA SE PASSA IL FILTRO ---
+                        if tipo == 'F':
+                            print("      ⛔ SCARTATO: Tipo 'F' (Fornitore)")
+                        elif not isinstance(qta, (int, float)):
+                            print("      ⛔ SCARTATO: Qta non numerica")
+                        elif qta <= 0:
+                            # Controlliamo se è zero o negativo
+                            if qta == 0:
+                                print("      ⛔ SCARTATO: Qta Zero")
+                            else:
+                                print("      ✅ QUESTO VERREBBE IMPORTATO (come positivo)!")
+                        else:
+                            print("      ✅ QUESTO VERREBBE IMPORTATO!")
+
+            except Exception as e:
+                print(f"Errore lettura DBF: {e}")
+
+        if not found_any:
+            print("\n❌ INCREDIBILE: Lo SKU non è stato trovato nemmeno nel file DBF!")
+            print("Controlla se nel gestionale il codice è scritto con spazi o se è diverso.")

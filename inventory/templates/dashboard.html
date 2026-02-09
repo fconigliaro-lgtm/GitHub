@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cruscotto Scadenze</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background-color: #f4f4f9; color: #333; }
+        
+        h1 { color: #2c3e50; }
+        p { color: #7f8c8d; }
+
+        /* Stile Tabella */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        th, td { padding: 15px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background-color: #34495e; color: white; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px; }
+        
+        /* Link Prodotto */
+        a.product-link { color: #d35400; font-weight: bold; text-decoration: none; }
+        a.product-link:hover { text-decoration: underline; }
+
+        /* Badge per lo stato */
+        .badge { padding: 5px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; display: inline-block; }
+        
+        .status-scaduto { background-color: #fadbd8; color: #c0392b; border: 1px solid #c0392b; }
+        .status-oggi { background-color: #fdebd0; color: #d35400; border: 1px solid #d35400; }
+        .status-ok { background-color: #d5f5e3; color: #27ae60; border: 1px solid #27ae60; }
+
+        /* Righe evidenziate */
+        tr:hover { background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+
+    <h1>🚨 CRUSCOTTO SCADENZE</h1>
+    <p>Ecco i prodotti con giacenza in magazzino ordinati per scadenza (esclusi quelli senza TMC).</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 10%">SKU</th>
+                <th style="width: 40%">Prodotto</th> <th style="width: 15%">Scadenza Stimata</th>
+                <th style="width: 15%">Data Arrivo</th>
+                <th style="width: 10%">Qta Residua</th>
+                <th style="width: 10%">Stato</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lotto in lotti %}
+            <tr>
+                <td><strong>{{ lotto.prodotto.sku }}</strong></td>
+
+                <td>
+                    <a href="{% url 'dettaglio_prodotto' lotto.prodotto.sku %}" class="product-link">
+                        {{ lotto.prodotto.descrizione }}
+                    </a>
+                </td>
+
+                <td style="font-weight: bold; font-size: 1.1em;">
+                    {{ lotto.data_scadenza_stimata|date:"d/m/Y" }}
+                </td>
+
+                <td style="color: #7f8c8d;">
+                    {{ lotto.data_arrivo|date:"d/m/Y" }}
+                </td>
+
+                <td>
+                    <span style="font-weight: bold; font-size: 1.1em;">{{ lotto.qta_residua }}</span>
+                </td>
+
+                <td>
+                    {% if lotto.data_scadenza_stimata < today %}
+                        <span class="badge status-scaduto">SCADUTO! 😱</span>
+                    {% elif lotto.data_scadenza_stimata == today %}
+                        <span class="badge status-oggi">SCADE OGGI! ⚠️</span>
+                    {% else %}
+                        <span class="badge status-ok">OK</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align:center; padding: 30px; color: #7f8c8d;">
+                    ✅ Nessun prodotto in scadenza o magazzino vuoto!
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Scheda: {{ prodotto.descrizione }}</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background-color: #f4f4f9; color: #333; }
+        
+        .btn-back { 
+            display: inline-block; margin-bottom: 15px; 
+            text-decoration: none; color: #2c3e50; font-weight: bold; 
+            padding: 8px 15px; background: #e0e0e0; border-radius: 5px;
+        }
+        .btn-back:hover { background: #d0d0d0; }
+
+        /* HEADER STYLES */
+        .header { 
+            background: #2c3e50; color: white; padding: 20px; 
+            border-radius: 8px; margin-bottom: 20px; 
+            display: flex; justify-content: space-between; align-items: flex-start;
+        }
+        
+        .header-main { flex-grow: 1; }
+        .header-main h1 { margin: 0; font-size: 24px; color: #ecf0f1; }
+        .header-main p { margin: 5px 0 0; color: #bdc3c7; font-size: 14px; }
+
+        .header-stats { display: flex; gap: 30px; text-align: right; }
+        
+        .stat-box { display: flex; flex-direction: column; }
+        .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #95a5a6; margin-bottom: 5px; }
+        .stat-value { font-size: 22px; font-weight: bold; color: #fff; }
+        .stat-value.highlight { color: #f39c12; }
+
+        /* MATH BOX */
+        .math-box { 
+            background: #34495e; color: white; padding: 15px; 
+            border-radius: 8px; margin-bottom: 20px; 
+            display: flex; justify-content: space-around; font-size: 16px; 
+        }
+        .math-item b { font-size: 18px; margin-left: 5px; color: #a3e4d7; }
+
+        /* TABLE STYLES */
+        .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; font-size: 18px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { background-color: #f8f9fa; color: #7f8c8d; padding: 12px; text-align: left; font-size: 13px; text-transform: uppercase; }
+        td { padding: 12px; border-bottom: 1px solid #eee; vertical-align: middle; font-size: 14px; }
+        
+        /* TIMELINE COLORS */
+        .row-ACQUISTO { background-color: #f0fdf4; } /* Verde scuro */
+        .row-ACQUISTO td:first-child { border-left: 5px solid #2ecc71; }
+        
+        .row-VENDITA { background-color: #fef2f2; } /* Rosso chiaro */
+        .row-VENDITA td:first-child { border-left: 5px solid #e74c3c; }
+
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .badge-acq { background-color: #d1fae5; color: #065f46; }
+        .badge-ven { background-color: #fee2e2; color: #991b1b; }
+        
+        .esaurito { text-decoration: line-through; color: #999; }
+        .residuo-ok { color: #27ae60; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <a href="/dashboard/" class="btn-back">⬅ Torna alla Dashboard</a>
+
+    <div class="header">
+        <div class="header-main">
+            <h1>{{ prodotto.descrizione }}</h1>
+            <p>SKU: <strong>{{ prodotto.sku }}</strong> | Reparto: {{ prodotto.reparto }}</p>
+        </div>
+        
+        <div class="header-stats">
+            <div class="stat-box">
+                <span class="stat-label">TMC (Giorni)</span>
+                <span class="stat-value">
+                    {% if prodotto.tmc_giorni %}
+                        {{ prodotto.tmc_giorni }} gg
+                    {% else %}
+                        -
+                    {% endif %}
+                </span>
+            </div>
+
+            <div class="stat-box">
+                <span class="stat-label">{{ etichetta_data }}</span>
+                <span class="stat-value highlight">
+                    {{ info_data|default:"N/D" }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="math-box">
+        <div class="math-item">📥 Acquistati: <b>{{ tot_acquistato }}</b></div>
+        <div class="math-item">📤 Venduti: <b>{{ tot_venduto }}</b></div>
+        <div class="math-item">🧮 Teorico: <b>{{ rimanenza_teorica }}</b></div>
+        <div class="math-item">✅ Reale a Sistema: <b>{{ rimanenza_reale }}</b></div>
+    </div>
+
+    <div class="container">
+        <div class="box">
+            <h2>📅 Cronologia Movimenti (Timeline Unificata)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 120px;">Data</th>
+                        <th style="width: 100px;">Tipo</th>
+                        <th style="width: 100px;">Q.tà</th>
+                        <th>Dettagli Lotto / Riferimenti</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in timeline %}
+                    <tr class="row-{{ item.tipo_movimento }}">
+                        
+                        <td>
+                            <strong>{{ item.data_movimento|date:"d/m/Y" }}</strong>
+                        </td>
+                        
+                        <td>
+                            {% if item.tipo_movimento == 'ACQUISTO' %}
+                                <span class="badge badge-acq">Acquisto</span>
+                            {% else %}
+                                <span class="badge badge-ven">Vendita</span>
+                            {% endif %}
+                        </td>
+                        
+                        <td style="font-size: 1.1em; font-weight: bold;">
+                            {% if item.tipo_movimento == 'VENDITA' %}-{% endif %}{{ item.qty_movimento }}
+                        </td>
+
+                        <td style="font-size: 0.9em; color: #555;">
+                            {% if item.tipo_movimento == 'ACQUISTO' %}
+                                <span class="{% if item.qta_residua == 0 %}esaurito{% endif %}">
+                                    Scadenza Prevista: {{ item.data_scadenza_stimata|date:"d/m/Y"|default:"N/D" }}
+                                </span>
+                                {% if item.qta_residua > 0 %}
+                                    <br><span class="residuo-ok">👉 Ancora in magazzino: {{ item.qta_residua }}</span>
+                                {% else %}
+                                    <br><span style="font-size: 0.85em; color: #999;">(Lotto Esaurito)</span>
+                                {% endif %}
+                            {% else %}
+                                Riferimento: {{ item.riferimento|default:"—" }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 30px; color: #999;">
+                            Nessun movimento (acquisto o vendita) registrato per questo prodotto.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</body>
+</html>
