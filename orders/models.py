@@ -2,7 +2,12 @@ from django.db import models
 from django.utils import timezone
 
 class Fornitore(models.Model):
-    nome = models.CharField(max_length=100, unique=True)
+    codice = models.CharField(
+        max_length=50, blank=True, null=True, unique=True,
+        verbose_name="Codice fornitore",
+        help_text="Da ART.DBF colonna APR050 (solo import, non modificabile a mano)"
+    )
+    nome = models.CharField(max_length=100)  # non unique: stesso nome per più codici (es. Barilla 23 e 8314)
     attivo = models.BooleanField(default=True, verbose_name="Fornitore Attivo")
     email_ordini = models.EmailField(blank=True, null=True)
     telefono = models.CharField(max_length=20, blank=True, null=True)

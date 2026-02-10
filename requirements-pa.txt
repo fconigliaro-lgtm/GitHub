@@ -1,0 +1,8 @@
+# Solo ciò che serve per far girare il sito su PythonAnywhere (limite 500 MB).
+# Sul PC continua a usare requirements.txt (con gspread, selenium, ecc.).
+
+Django>=4.2,<7
+djangorestframework
+django-filter
+asgiref
+sqlparse

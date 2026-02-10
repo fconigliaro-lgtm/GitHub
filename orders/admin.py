@@ -1,11 +1,12 @@
 from django.contrib import admin
 from django.utils.safestring import mark_safe
-from django.urls import reverse
+from django.urls import reverse, path
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.db.models import Sum, Max
 from django.core.mail import send_mail
 from django.conf import settings
+from django.template.response import TemplateResponse
 import calendar
 import math
 import datetime
@@ -76,7 +77,7 @@ def get_compact_table(period_type, sales_data, purchase_data, reference_date):
         </table>
     </div>""")
 
-# --- ACTION: GENERA ORDINE ---
+# --- ACTION: GENERA ORDINE (per uno o più fornitori) ---
 @admin.action(description='⚡ Genera Bozza Ordine (Auto)')
 def crea_bozza_ordine(modeladmin, request, queryset):
     ultima_vendita = VenditaStorica.objects.aggregate(Max('data'))['data__max']
@@ -84,17 +85,21 @@ def crea_bozza_ordine(modeladmin, request, queryset):
     simulation_date = ultima_vendita if ultima_vendita and ultima_vendita.year > today.year else today
     start_date = simulation_date - datetime.timedelta(days=30)
 
+    ordini_creati = []
     for fornitore in queryset:
-        if not fornitore.attivo: continue
+        if not fornitore.attivo:
+            continue
         ordine = OrdineFornitore.objects.create(fornitore=fornitore)
         prodotti = ListinoFornitore.objects.filter(fornitore=fornitore, escludi_da_ordine=False).select_related('prodotto')
-        if not prodotti.exists(): continue
+        if not prodotti.exists():
+            ordine.delete()
+            continue
 
         righe = []
         for voce in prodotti:
             prod = voce.prodotto
             vendite = VenditaStorica.objects.filter(prodotto=prod, data__range=[start_date, simulation_date]).aggregate(tot=Sum('quantita'))['tot'] or 0
-            
+
             fabbisogno = (float(vendite) / 30 * 40) - prod.giacenza
             qta = 0
             if fabbisogno > 0:
@@ -105,7 +110,19 @@ def crea_bozza_ordine(modeladmin, request, queryset):
                 ordine=ordine, prodotto=prod, qta_1=qta, unita_1='COLLI', pezzi_per_collo=prod.pezzi_per_cartone
             ))
         RigaOrdine.objects.bulk_create(righe)
-        return redirect(reverse('admin:orders_ordinefornitore_change', args=[ordine.id]))
+        ordini_creati.append((ordine.id, fornitore.nome))
+
+    if not ordini_creati:
+        modeladmin.message_user(request, "Nessun ordine creato (fornitori inattivi o senza listino).", level='WARNING')
+        return
+
+    # Un solo ordine: vai direttamente alla scheda ordine (come prima)
+    if len(ordini_creati) == 1:
+        return redirect(reverse('admin:orders_ordinefornitore_change', args=[ordini_creati[0][0]]))
+
+    # Più ordini: apri la GRIGLIA SCAFFALE unificata
+    ids_param = ",".join(str(oid) for oid, _ in ordini_creati)
+    return redirect(f"{reverse('admin:orders_griglia_scaffale')}?ordini={ids_param}")
 
 # --- ACTION: INVIA EMAIL ---
 @admin.action(description='📧 Invia Ordine via Email')
@@ -252,16 +269,13 @@ class ListinoInline(admin.TabularInline):
 # --- FORNITORE ADMIN (CON ARCHIVIAZIONE RAPIDA) ---
 @admin.register(Fornitore)
 class FornitoreAdmin(admin.ModelAdmin):
-    # Colonne visibili nella lista principale
-    list_display = ('nome', 'attivo', 'volume_acquisti_anno', 'conta_prodotti') 
-    
-    # Questo è il trucco: rendiamo 'attivo' cliccabile direttamente nella lista
+    list_display = ('codice', 'nome', 'attivo', 'volume_acquisti_anno', 'conta_prodotti')
+    list_display_links = ('nome',)
     list_editable = ('attivo',)
-    
-    # Filtro laterale: Clicca su "Attivo: Si" per nascondere l'archivio
-    list_filter = ('attivo',) 
-    
-    search_fields = ('nome',)
+    list_filter = ('attivo',)
+    search_fields = ('codice', 'nome')
+    # Codice fornitore viene da ART.DBF (APR050), non si compila a mano
+    readonly_fields = ('codice',)
     inlines = [ListinoInline]
     actions = [crea_bozza_ordine]
     ordering = ('-attivo', 'nome') # Mette prima i fornitori attivi, poi quelli archiviati
@@ -292,6 +306,84 @@ class OrdineFornitoreAdmin(admin.ModelAdmin):
     list_display = ('id', 'fornitore', 'data_creazione', 'stato')
     actions = [invia_ordine_email]
     inlines = [RigaOrdineInline]
+
+    # --- URL custom per GRIGLIA SCAFFALE ---
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'griglia-scaffale/',
+                self.admin_site.admin_view(self.griglia_scaffale_view),
+                name='orders_griglia_scaffale',
+            ),
+        ]
+        return custom_urls + urls
+
+    def griglia_scaffale_view(self, request):
+        """
+        Vista che mostra in un'unica griglia le righe di più ordini fornitore.
+        URL esempio: /admin/orders/ordinefornitore/griglia-scaffale/?ordini=12,13
+        """
+        ordini_param = request.GET.get('ordini', '')
+        if not ordini_param:
+            self.message_user(request, "Parametri mancanti: specificare ?ordini=ID1,ID2,...", level='ERROR')
+            return redirect(reverse('admin:orders_ordinefornitore_changelist'))
+
+        try:
+            ord_ids = [int(x) for x in ordini_param.split(',') if x.strip()]
+        except ValueError:
+            self.message_user(request, "Formato parametri non valido.", level='ERROR')
+            return redirect(reverse('admin:orders_ordinefornitore_changelist'))
+
+        ordini = (
+            OrdineFornitore.objects
+            .filter(id__in=ord_ids)
+            .select_related('fornitore')
+            .prefetch_related('righe__prodotto')
+        )
+        if not ordini:
+            self.message_user(request, "Nessun ordine trovato per gli ID indicati.", level='ERROR')
+            return redirect(reverse('admin:orders_ordinefornitore_changelist'))
+
+        # Raccolgo tutte le righe ordine
+        righe = []
+        for ordine in ordini:
+            for riga in ordine.righe.all():
+                righe.append(riga)
+
+        # Ordino per reparto + descrizione prodotto (simile a scaffale)
+        righe.sort(key=lambda r: (r.prodotto.reparto or '', r.prodotto.descrizione or ''))
+
+        # Salvataggio delle quantità (POST)
+        if request.method == 'POST':
+            updated = 0
+            for riga in righe:
+                q_key = f"qta_{riga.id}"
+                u_key = f"um_{riga.id}"
+                if q_key in request.POST:
+                    raw_q = request.POST.get(q_key, '').strip()
+                    raw_um = request.POST.get(u_key, '').strip() or riga.unita_1
+                    try:
+                        nuova_qta = int(raw_q or 0)
+                    except ValueError:
+                        nuova_qta = riga.qta_1
+                    if nuova_qta != riga.qta_1 or raw_um != riga.unita_1:
+                        riga.qta_1 = nuova_qta
+                        riga.unita_1 = raw_um
+                        riga.save(update_fields=['qta_1', 'unita_1'])
+                        updated += 1
+            if updated:
+                self.message_user(request, f"Quantità aggiornate per {updated} righe.")
+            # Ricarica la pagina per vedere i valori aggiornati
+            return redirect(request.get_full_path())
+
+        context = self.admin_site.each_context(request)
+        context.update({
+            'title': "Griglia scaffale - Ordini multipli",
+            'ordini': ordini,
+            'righe': righe,
+        })
+        return TemplateResponse(request, "admin/orders/griglia_scaffale.html", context)
     def change_view(self, request, object_id, form_url='', extra_context=None):
         extra_context = extra_context or {}
         extra_context['media_custom'] = mark_safe(CUSTOM_CSS)

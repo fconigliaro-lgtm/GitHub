@@ -27,10 +27,18 @@ class Command(BaseCommand):
         # 1. CARICAMENTO MAPPA NOMI (ACF)
         self.stdout.write("Lettura anagrafica fornitori (ACF.DBF)...")
         nomi_fornitori = {} 
+        scartati_non_fornitori = 0
         
         try:
             table_acf = DBF(PATH_ACF, encoding='cp1252', ignore_missing_memofile=True)
             for record in table_acf:
+                # In ACF.DBF ci sono anche clienti/altre anagrafiche.
+                # ACF010 = 'F' identifica i FORNITORI (evita sovrapposizioni tipo codice 23).
+                tipo = str(record.get('ACF010', '')).strip().upper()
+                if tipo != 'F':
+                    scartati_non_fornitori += 1
+                    continue
+
                 raw_code = record.get('ACF020', '')
                 nome = str(record.get('ACF030', '')).strip()
                 
@@ -39,6 +47,7 @@ class Command(BaseCommand):
                     nomi_fornitori[codice_pulito] = nome
             
             self.stdout.write(f"✅ Mappati {len(nomi_fornitori)} nomi da ACF.")
+            self.stdout.write(f"ℹ️ Scartati record ACF non-fornitori: {scartati_non_fornitori}")
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Errore lettura ACF: {e}"))
             return
@@ -78,22 +87,22 @@ class Command(BaseCommand):
                 cod_forn_id = self.normalize_code(raw_cod_forn)
                 if not cod_forn_id or cod_forn_id == '0': continue
 
-                # --- GESTIONE FORNITORE (LOGICA CORRETTA) ---
+                # --- GESTIONE FORNITORE: codice da APR050 (ART.DBF), nome da ACF ---
                 if cod_forn_id in fornitori_cache:
                     fornitore_usato = fornitori_cache[cod_forn_id]
                 else:
-                    # Troviamo il nome vero (o usiamo il codice come fallback)
                     nome_reale = nomi_fornitori.get(cod_forn_id, f"Fornitore {cod_forn_id}")
-                    
-                    # Cerca o Crea usando DIRETTAMENTE il nome reale
                     fornitore_usato, created = Fornitore.objects.get_or_create(
-                        nome=nome_reale,
-                        defaults={'giorno_consegna_abituale': 'Da definire'}
+                        codice=cod_forn_id,
+                        defaults={'nome': nome_reale, 'giorno_consegna_abituale': 'Da definire'}
                     )
-                    
                     if created:
                         count_fornitori_creati += 1
-                    
+                    else:
+                        # Aggiorna il nome se è cambiato in ACF
+                        if fornitore_usato.nome != nome_reale:
+                            fornitore_usato.nome = nome_reale
+                            fornitore_usato.save()
                     fornitori_cache[cod_forn_id] = fornitore_usato
 
                 # --- COLLEGAMENTO LISTINO ---
