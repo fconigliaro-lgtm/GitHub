@@ -43,14 +43,41 @@ def _format_cell_2dec(cell):
     neg = t.startswith('-')
     if neg:
         t = t[1:]
-    t = t.replace('.', '').replace(',', '.')
+    # Italiano: virgola = decimali, punto = migliaia. US: punto = decimali.
+    # Usiamo l'ultimo separatore (',' o '.') come decimale per non sbagliare "100,03" vs "100.03".
+    last_comma = t.rfind(',')
+    last_dot = t.rfind('.')
+    if last_comma > last_dot:
+        # Virgola è decimale (es. 1.673,88 o 100,03)
+        int_str_raw = t[:last_comma].replace('.', '')
+        dec_str = t[last_comma + 1:]
+    elif last_dot > last_comma:
+        # Punto è decimale (es. 100.03)
+        int_str_raw = t[:last_dot].replace(',', '')
+        dec_str = t[last_dot + 1:]
+    else:
+        int_str_raw = t.replace('.', '').replace(',', '')
+        dec_str = '0'
+    int_str_raw = int_str_raw.replace(' ', '') or '0'
+    if not int_str_raw.lstrip('-').isdigit():
+        return s
     try:
-        num = float(t)
+        int_part = int(int_str_raw)
     except ValueError:
         return s
-    num = round(num, 2)
+    try:
+        dec_part = int(dec_str[:2].ljust(2, '0')) if dec_str else 0
+    except ValueError:
+        dec_part = 0
+    if dec_part >= 100:
+        dec_part = 0
+        int_part += 1
+    num = int_part + dec_part / 100.0
     if neg:
         num = -num
+    if abs(num) > 1e12:
+        return s
+    num = round(num, 2)
     sign = '-' if num < 0 else ''
     num = abs(num)
     int_part = int(num)
@@ -61,10 +88,8 @@ def _format_cell_2dec(cell):
     int_str = str(int_part)
     if len(int_str) > 3:
         parts = []
-        for i in range(len(int_str) - 3, -1, -3):
-            parts.append(int_str[max(0, i):i + 3])
-        if len(int_str) % 3:
-            parts.append(int_str[: len(int_str) % 3])
+        for i in range(len(int_str), 0, -3):
+            parts.append(int_str[max(0, i - 3):i])
         int_str = '.'.join(reversed(parts))
     return f"{sign}{int_str},{dec_part:02d}"
 
