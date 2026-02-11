@@ -25,6 +25,7 @@ db.sqlite3
 
 # Upload e dati temporanei (opzionale: togli dalla lista se vuoi versionarli)
 dbf_uploads/
+csv_temp/
 *.zip
 *.rar
 log_aggiornamento.txt

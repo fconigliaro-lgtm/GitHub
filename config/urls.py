@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from django.views.generic import TemplateView
 from inventory import views as inventory_views
-from config.views import link_casse
+from config.views import link_casse, casse_upload_csv
 
 urlpatterns = [
     # 1. La Home Page (Il menu con i bottoni)
@@ -19,4 +19,6 @@ urlpatterns = [
 
     # 5. Link veloce casse – tabella da Google Fogli
     path('casse/', link_casse, name='link_casse'),
+    # 6. Ricezione CSV da Google Apps Script (aggiornamento saldi casse)
+    path('casse/update/', casse_upload_csv, name='casse_upload_csv'),
 ]

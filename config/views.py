@@ -1,9 +1,13 @@
 import csv
 import io
+import os
 import urllib.request
 from django.conf import settings
 from django.core.cache import cache
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 
 # Chiave e TTL cache tabella casse
 CASSE_CACHE_KEY = 'link_casse_table_rows'
@@ -41,8 +45,24 @@ def _is_saldo_zero(cell_value):
         return s in ('0', '0.00', '0,00')
 
 
+def _parse_csv_to_table_rows(text, max_cols=CASSE_MAX_COLS):
+    """Da testo CSV restituisce le righe per la tabella (intestazione + dati, colonne filtrate, dal rigo 3, no saldo zero)."""
+    reader = csv.reader(io.StringIO(text))
+    keep = CASSE_COL_INDICES
+    def pick(row):
+        r = row[:max_cols]
+        return [r[i] for i in keep if i < len(r)]
+    rows = [pick(row) for row in reader]
+    from_row_3 = rows[2:] if len(rows) > 2 else []
+    if not from_row_3:
+        return []
+    header = from_row_3[0]
+    data_rows = [r for r in from_row_3[1:] if r and not _is_saldo_zero(r[0])]
+    return [header] + data_rows
+
+
 def _fetch_csv_rows(csv_url, max_cols=CASSE_MAX_COLS):
-    """Scarica il CSV da Google e restituisce le righe (solo prime max_cols colonne)."""
+    """Scarica il CSV da Google e restituisce le righe per la tabella."""
     req = urllib.request.Request(csv_url, headers={'User-Agent': 'Mozilla/5.0 (compatible; ConigliaroCasse/1)'})
     with urllib.request.urlopen(req, timeout=15) as resp:
         raw = resp.read()
@@ -50,19 +70,23 @@ def _fetch_csv_rows(csv_url, max_cols=CASSE_MAX_COLS):
         text = raw.decode('utf-8')
     except UnicodeDecodeError:
         text = raw.decode('utf-8-sig')
-    reader = csv.reader(io.StringIO(text))
-    keep = CASSE_COL_INDICES
-    def pick(row):
-        r = row[:max_cols]
-        return [r[i] for i in keep if i < len(r)]
-    rows = [pick(row) for row in reader]
-    # Dati dal rigo 3 in poi (indice 2 = terza riga come intestazione)
-    from_row_3 = rows[2:] if len(rows) > 2 else []
-    if not from_row_3:
-        return []
-    header = from_row_3[0]
-    data_rows = [r for r in from_row_3[1:] if r and not _is_saldo_zero(r[0])]
-    return [header] + data_rows
+    return _parse_csv_to_table_rows(text, max_cols)
+
+
+def _read_local_casse_csv():
+    """Legge il file CSV locale (aggiornato da Google Apps Script). Ritorna lista righe o None."""
+    path = getattr(settings, 'CASSE_LOCAL_CSV_PATH', None)
+    if not path:
+        return None
+    path = path.resolve() if hasattr(path, 'resolve') else path
+    try:
+        text = path.read_text(encoding='utf-8')
+    except (OSError, IOError):
+        return None
+    try:
+        return _parse_csv_to_table_rows(text)
+    except Exception:
+        return None
 
 
 def link_casse(request):
@@ -75,7 +99,11 @@ def link_casse(request):
     table_rows = None
     error_message = None
 
-    if csv_url:
+    # 1) File locale (aggiornato da Google) = risposta immediata
+    table_rows = _read_local_casse_csv()
+
+    # 2) Se non c'è file locale, usa cache o fetch da Google
+    if table_rows is None and csv_url:
         cache_seconds = getattr(settings, 'CASSE_TABLE_CACHE_SECONDS', 180)
         table_rows = cache.get(CASSE_CACHE_KEY)
         if table_rows is None:
@@ -98,5 +126,39 @@ def link_casse(request):
     return render(request, 'link_casse.html', {
         'table_rows': table_rows or [],
         'error_message': error_message,
-        'casse_configured': bool(csv_url),
+        'casse_configured': bool(csv_url) or bool(table_rows),
     })
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def casse_upload_csv(request):
+    """
+    Endpoint chiamato da Google Apps Script quando il foglio viene modificato.
+    Body: CSV raw. Header: X-Casse-Secret = CASSE_UPDATE_SECRET.
+    Salva in CASSE_LOCAL_CSV_PATH e invalida la cache.
+    """
+    secret = getattr(settings, 'CASSE_UPDATE_SECRET', '').strip()
+    if not secret:
+        return HttpResponseForbidden('CASSE_UPDATE_SECRET non configurato')
+    provided = request.headers.get('X-Casse-Secret', '').strip()
+    if provided != secret:
+        return HttpResponseForbidden('Chiave non valida')
+    try:
+        text = request.body.decode('utf-8')
+    except UnicodeDecodeError:
+        text = request.body.decode('utf-8-sig')
+    path = getattr(settings, 'CASSE_LOCAL_CSV_PATH', None)
+    if not path:
+        return HttpResponseForbidden('CASSE_LOCAL_CSV_PATH non configurato')
+    path = path.resolve() if hasattr(path, 'resolve') else path
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return HttpResponse('Errore creazione cartella', status=500)
+    try:
+        path.write_text(text, encoding='utf-8')
+    except OSError:
+        return HttpResponse('Errore scrittura file', status=500)
+    cache.delete(CASSE_CACHE_KEY)
+    return HttpResponse('OK', content_type='text/plain')

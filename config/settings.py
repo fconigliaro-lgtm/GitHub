@@ -135,7 +135,11 @@ GOOGLE_SHEET_CASSE_SPREADSHEET_ID = os.environ.get(
 GOOGLE_SHEET_CASSE_GID = os.environ.get('GOOGLE_SHEET_CASSE_GID', '1527681967')
 # Oppure imposta direttamente l’URL di export (es. se l’ID non funziona):
 GOOGLE_SHEET_CASSE_CSV_URL = os.environ.get('GOOGLE_SHEET_CASSE_CSV_URL', '')
-CASSE_TABLE_CACHE_SECONDS = 180  # 3 minuti
+CASSE_TABLE_CACHE_SECONDS = 180  # 3 minuti (usato solo se non c'è file locale)
+# File locale aggiornato da Google (Apps Script): se esiste, la pagina casse lo usa = caricamento istantaneo
+CASSE_LOCAL_CSV_PATH = BASE_DIR / 'csv_temp' / 'saldi_casse.csv'
+# Chiave per l'endpoint POST da Google: imposta in variabile d'ambiente CASSE_UPDATE_SECRET (es. una stringa lunga casuale)
+CASSE_UPDATE_SECRET = os.environ.get('CASSE_UPDATE_SECRET', '')
 
 # --- CONFIGURAZIONE EMAIL ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

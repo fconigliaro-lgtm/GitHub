@@ -6,10 +6,12 @@
     <title>Tabella Casse – Conigliaro</title>
     <style>
         * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; width: 600px; height: 600px; max-width: 100vw; max-height: 100vh; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; display: flex; flex-direction: column; }
-        .header { padding: 8px 12px; background: #16213e; flex-shrink: 0; }
+        html, body { margin: 0; padding: 0; min-height: 100vh; font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; }
+        /* Contenitore con margini: non a tutta pagina per agevolare touch (chiudere finestra ai bordi) */
+        .page-box { margin: 12px auto; width: 92%; max-width: 900px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .header { padding: 8px 12px; background: #16213e; flex-shrink: 0; border-radius: 8px 8px 0 0; }
         .header h1 { margin: 0; font-size: 1rem; font-weight: 600; }
-        .wrap { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 8px; max-width: 100%; }
+        .wrap { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 8px; }
         .table-wrap { flex: 1; min-height: 0; overflow: auto; border-radius: 6px; background: #fff; color: #111; -webkit-overflow-scrolling: touch; }
         table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
         th, td { padding: 5px 8px; text-align: left; border-bottom: 1px solid #e0e0e0; }
@@ -22,6 +24,7 @@
     </style>
 </head>
 <body>
+    <div class="page-box">
     <div class="header">
         <h1>📋 Tabella Casse – Saldi</h1>
     </div>
@@ -54,6 +57,7 @@
         {% else %}
             <div class="no-data">Nessun dato nel foglio.</div>
         {% endif %}
+    </div>
     </div>
 </body>
 </html>
