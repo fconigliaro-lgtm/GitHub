@@ -78,10 +78,15 @@ def _read_local_casse_csv():
     path = getattr(settings, 'CASSE_LOCAL_CSV_PATH', None)
     if not path:
         return None
-    path = path.resolve() if hasattr(path, 'resolve') else path
     try:
-        text = path.read_text(encoding='utf-8')
-    except (OSError, IOError):
+        path = path.resolve() if hasattr(path, 'resolve') else path
+        path = str(path)
+    except Exception:
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            text = f.read()
+    except (OSError, IOError, FileNotFoundError):
         return None
     try:
         return _parse_csv_to_table_rows(text)

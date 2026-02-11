@@ -7,14 +7,12 @@
     <style>
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; min-height: 100vh; font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; }
-        /* Contenitore: stessa larghezza in locale e sul web (margini per touch) */
-        .page-box { margin: 12px auto; width: 96%; min-width: 320px; max-width: 1200px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .header { padding: 8px 12px; background: #16213e; flex-shrink: 0; border-radius: 8px 8px 0 0; }
-        .header h1 { margin: 0; font-size: 1rem; font-weight: 600; }
-        .wrap { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 8px; }
-        .table-wrap { flex: 1; min-height: 0; overflow: auto; border-radius: 6px; background: #fff; color: #111; -webkit-overflow-scrolling: touch; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-        th, td { padding: 5px 8px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        /* Contenitore compatto: massimo spazio alla tabella, pochi margini */
+        .page-box { margin: 6px auto; width: 96%; min-width: 320px; max-width: 1200px; max-height: 96vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 12px rgba(0,0,0,0.25); }
+        .wrap { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 4px; }
+        .table-wrap { flex: 1; min-height: 0; overflow: auto; border-radius: 4px; background: #fff; color: #111; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        th, td { padding: 3px 6px; text-align: left; border-bottom: 1px solid #e0e0e0; line-height: 1.2; }
         th { background: #16213e; color: #fff; font-weight: 600; white-space: nowrap; position: sticky; top: 0; z-index: 1; box-shadow: 0 1px 0 #e0e0e0; }
         tbody tr:nth-child(odd) { background: #fff; }
         tbody tr:nth-child(even) { background: #e8eef4; }
@@ -25,9 +23,6 @@
 </head>
 <body>
     <div class="page-box">
-    <div class="header">
-        <h1>📋 Tabella Casse – Saldi</h1>
-    </div>
     <div class="wrap">
         {% if error_message %}
             <div class="error">{{ error_message }}</div>

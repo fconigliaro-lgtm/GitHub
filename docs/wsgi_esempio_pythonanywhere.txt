@@ -1,0 +1,17 @@
+import os
+import sys
+
+# 1. Percorso della cartella principale (dove c'è manage.py)
+path = '/home/FedericoConigliaro/GitHub'
+
+if path not in sys.path:
+    sys.path.append(path)
+
+os.environ['CASSE_UPDATE_SECRET'] = 'SaldiCasse2026'
+
+# 2. Diciamo dove sono le impostazioni
+os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings'
+
+# 3. Avvia Django
+from django.core.wsgi import get_wsgi_application
+application = get_wsgi_application()
