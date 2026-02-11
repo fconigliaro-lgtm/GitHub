@@ -123,6 +123,20 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# --- FOGLIO GOOGLE PER PAGINA CASSE (tabella veloce via CSV, colonne A–F) ---
+# Usa l’ID del foglio dall’URL di MODIFICA (apri il foglio → nella barra indirizzi vedi
+# .../d/QUESTO_È_L_ID/edit#gid=...). NON usare l’URL “Pubblica sul web” (/d/e/...).
+# Condivisione: “Chiunque con il link può visualizzare”.
+# Lascia vuoto SPREADSHEET_ID se usi GOOGLE_SHEET_CASSE_CSV_URL (URL completo).
+GOOGLE_SHEET_CASSE_SPREADSHEET_ID = os.environ.get(
+    'GOOGLE_SHEET_CASSE_SPREADSHEET_ID',
+    '1LpRF63GTmyU_EI3VzsDst1_-9InAofk-ZDbcFKPY-hI'
+)
+GOOGLE_SHEET_CASSE_GID = os.environ.get('GOOGLE_SHEET_CASSE_GID', '1527681967')
+# Oppure imposta direttamente l’URL di export (es. se l’ID non funziona):
+GOOGLE_SHEET_CASSE_CSV_URL = os.environ.get('GOOGLE_SHEET_CASSE_CSV_URL', '')
+CASSE_TABLE_CACHE_SECONDS = 180  # 3 minuti
+
 # --- CONFIGURAZIONE EMAIL ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'

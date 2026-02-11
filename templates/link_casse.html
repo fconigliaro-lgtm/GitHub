@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabella Casse – Conigliaro</title>
+    <style>
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; width: 600px; height: 600px; max-width: 100vw; max-height: 100vh; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; display: flex; flex-direction: column; }
+        .header { padding: 8px 12px; background: #16213e; flex-shrink: 0; }
+        .header h1 { margin: 0; font-size: 1rem; font-weight: 600; }
+        .wrap { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 8px; max-width: 100%; }
+        .table-wrap { flex: 1; min-height: 0; overflow: auto; border-radius: 6px; background: #fff; color: #111; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th, td { padding: 5px 8px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        th { background: #16213e; color: #fff; font-weight: 600; white-space: nowrap; position: sticky; top: 0; z-index: 1; box-shadow: 0 1px 0 #e0e0e0; }
+        tbody tr:nth-child(odd) { background: #fff; }
+        tbody tr:nth-child(even) { background: #e8eef4; }
+        tbody tr:hover { background: #dae4f0 !important; }
+        .error { padding: 12px; background: #4a1515; color: #ffcdd2; border-radius: 6px; overflow: auto; max-height: 100%; }
+        .no-data { padding: 16px; text-align: center; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 Tabella Casse – Saldi</h1>
+    </div>
+    <div class="wrap">
+        {% if error_message %}
+            <div class="error">{{ error_message }}</div>
+        {% elif not casse_configured %}
+            <div class="no-data">Nessun foglio configurato. Imposta <code>GOOGLE_SHEET_CASSE_CSV_URL</code> in <code>config/settings.py</code>.</div>
+        {% elif table_rows %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            {% for cell in table_rows.0 %}
+                                <th>{{ cell }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in table_rows|slice:"1:" %}
+                            <tr>
+                                {% for cell in row %}
+                                    <td>{{ cell }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="no-data">Nessun dato nel foglio.</div>
+        {% endif %}
+    </div>
+</body>
+</html>
