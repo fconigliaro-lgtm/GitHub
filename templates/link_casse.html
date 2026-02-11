@@ -7,8 +7,8 @@
     <style>
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; min-height: 100vh; font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; }
-        /* Contenitore con margini: non a tutta pagina per agevolare touch (chiudere finestra ai bordi) */
-        .page-box { margin: 12px auto; width: 92%; max-width: 900px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        /* Contenitore: stessa larghezza in locale e sul web (margini per touch) */
+        .page-box { margin: 12px auto; width: 96%; min-width: 320px; max-width: 1200px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
         .header { padding: 8px 12px; background: #16213e; flex-shrink: 0; border-radius: 8px 8px 0 0; }
         .header h1 { margin: 0; font-size: 1rem; font-weight: 600; }
         .wrap { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 8px; }
