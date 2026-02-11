@@ -32,6 +32,43 @@ def _build_csv_url():
     return f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}'
 
 
+def _format_cell_2dec(cell):
+    """Se la cella è un numero, arrotonda a 2 decimali e formatta in stile italiano (1.673,88)."""
+    if not cell or not isinstance(cell, str):
+        return cell
+    s = cell.strip()
+    t = s.replace('€', '').replace(' ', '').replace('\u00a0', '').strip()
+    if not t or t == '-':
+        return s
+    neg = t.startswith('-')
+    if neg:
+        t = t[1:]
+    t = t.replace('.', '').replace(',', '.')
+    try:
+        num = float(t)
+    except ValueError:
+        return s
+    num = round(num, 2)
+    if neg:
+        num = -num
+    sign = '-' if num < 0 else ''
+    num = abs(num)
+    int_part = int(num)
+    dec_part = int(round((num - int_part) * 100))
+    if dec_part >= 100:
+        dec_part = 0
+        int_part += 1
+    int_str = str(int_part)
+    if len(int_str) > 3:
+        parts = []
+        for i in range(len(int_str) - 3, -1, -3):
+            parts.append(int_str[max(0, i):i + 3])
+        if len(int_str) % 3:
+            parts.append(int_str[: len(int_str) % 3])
+        int_str = '.'.join(reversed(parts))
+    return f"{sign}{int_str},{dec_part:02d}"
+
+
 def _is_saldo_zero(cell_value):
     """True se la colonna A (Saldo) è zero: es. '€ 0,00', '0', '-€ 0,00'."""
     if not cell_value:
@@ -58,7 +95,8 @@ def _parse_csv_to_table_rows(text, max_cols=CASSE_MAX_COLS):
         return []
     header = from_row_3[0]
     data_rows = [r for r in from_row_3[1:] if r and not _is_saldo_zero(r[0])]
-    return [header] + data_rows
+    rows = [header] + data_rows
+    return [[_format_cell_2dec(c) for c in row] for row in rows]
 
 
 def _fetch_csv_rows(csv_url, max_cols=CASSE_MAX_COLS):
